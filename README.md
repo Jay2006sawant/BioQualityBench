@@ -33,6 +33,58 @@ java -jar target/bio-quality-bench-0.0.1-SNAPSHOT.jar
 
 Default port: **8080** (see `src/main/resources/application.properties`).
 
+## Output when you run the project
+
+### After `mvn test`
+
+- Maven exits successfully (**BUILD SUCCESS**). You may see a JVM line such as `OpenJDK ... Sharing is only supported for boot loader classes` — that is a harmless warning.
+- The console shows **SLF4J** lines from `BioServiceImpl`, for example:
+  - `Resolved biometric provider for benchmarking modality=FINGERPRINT provider=FingerprintSDKProvider`
+  - `SDK benchmark succeeded ... sdkScore=... sbiScore=...`
+  - `SDK evaluation failed; applying SBI quality fallback ... reason=SDK timeout` (when the mock SDK simulates failure)
+  - `Benchmark completed ... evaluatedScore=... processingTimeMs=...`
+
+### After `java -jar target/bio-quality-bench-0.0.1-SNAPSHOT.jar`
+
+- Spring Boot prints the **ASCII banner** and **`:: Spring Boot :: (v3.4.1)`**.
+- Logs show **Tomcat started on port 8080** and **`Started BioQualityBenchApplication`**.
+- If **port 8080 is already in use** (e.g. you started the JAR twice), startup fails with *Web server failed to start. Port 8080 was already in use* — stop the other process or change the port in `application.properties`.
+
+### HTTP response from `POST /api/v1/biometrics/benchmark`
+
+The body is always JSON with these fields:
+
+| Field | Meaning |
+|--------|--------|
+| `originalSbiScore` | SBI / request `qualityScore` (may be `null` if omitted) |
+| `evaluatedSdkScore` | Score from the mock SDK, **or** the SBI fallback if the SDK failed |
+| `providerUsed` | Simple class name of the provider (e.g. `FingerprintSDKProvider`) |
+| `processingTimeMs` | Time taken for this benchmark call |
+
+**Example — fingerprint, SDK succeeded** (mock score is random between 40 and 90):
+
+```json
+{
+  "originalSbiScore": 70.0,
+  "evaluatedSdkScore": 71.33392846380087,
+  "providerUsed": "FingerprintSDKProvider",
+  "processingTimeMs": 1
+}
+```
+
+**Example — face, mock SDK failed** (score falls back to SBI):
+
+```json
+{
+  "originalSbiScore": 65.0,
+  "evaluatedSdkScore": 65.0,
+  "providerUsed": "FaceSDKProvider",
+  "processingTimeMs": 1
+}
+```
+
+Your exact `evaluatedSdkScore` will differ on each call when the SDK path succeeds, because the mock providers use random scores and occasional failures.
+
 ## API example
 
 ```bash
